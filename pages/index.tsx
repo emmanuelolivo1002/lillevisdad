@@ -1,28 +1,14 @@
 import moment from 'moment'
-import type { NextPage } from 'next'
+import type {
+  NextPage,
+  GetServerSideProps,
+  InferGetServerSidePropsType,
+} from 'next'
 import Head from 'next/head'
 import { useEffect, useState } from 'react'
-import lastDateJson from '../lastDate.json'
 
-const Reset = () => {
+const Reset = ({ onReset }: any) => {
   const [password, setPassword] = useState('')
-
-  const onReset = () => {
-    if (password === 'suso123') {
-      // POST /api/lastDate send todays date to server
-      fetch('/api/lastDate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          lastDate: moment().format('YYYY-MM-DD HH:mm:ss'),
-        }),
-      })
-    } else {
-      alert('wrong password')
-    }
-  }
 
   return (
     <div className="mt-40 flex ">
@@ -35,13 +21,13 @@ const Reset = () => {
         // on Enter press call onReset
         onKeyPress={(e) => {
           if (e.key === 'Enter') {
-            onReset()
+            onReset(password)
           }
         }}
       />
       <button
         className="rounded-sm rounded-l-none bg-green-500 p-2 text-white focus:outline-none focus:ring focus:ring-green-300 active:bg-green-400"
-        onClick={onReset}
+        onClick={() => onReset(password)}
       >
         Reset Timer
       </button>
@@ -49,26 +35,47 @@ const Reset = () => {
   )
 }
 
-const Home: NextPage = () => {
-  const { lastDate } = lastDateJson
+const humanizeTimeSince = (lastDate: string) => {
+  const timeSince = moment
+    .duration(moment().diff(lastDate))
+    .humanize()
+    .toLocaleUpperCase()
+  return timeSince
+}
 
-  const humanizeTimeSince = (lastDate: string) => {
-    const timeSince = moment
-      .duration(moment().diff(lastDate))
-      .humanize()
-      .toLocaleUpperCase()
-    return timeSince
-  }
+const Home: NextPage = ({
+  lastDate,
+}: InferGetServerSidePropsType<typeof getServerSideProps>) => {
+  const [currentLastDate, setCurrentLastDate] = useState(lastDate)
 
   const [timeSince, setTimeSince] = useState(() => humanizeTimeSince(lastDate))
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setTimeSince(humanizeTimeSince(lastDate))
+      setTimeSince(humanizeTimeSince(currentLastDate))
     }, 1000)
 
     return () => clearInterval(timer)
   })
+
+  const onReset = (password: string) => {
+    if (password === 'suso123') {
+      const now = moment().format('YYYY-MM-DD HH:mm:ss')
+      setCurrentLastDate(now)
+      // POST /api/lastDate send todays date to server
+      fetch('https://api.jsonbin.io/v3/b/627bcfc525069545a3328815', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          lastDate: now,
+        }),
+      })
+    } else {
+      alert('wrong password')
+    }
+  }
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center py-2">
@@ -93,10 +100,24 @@ const Home: NextPage = () => {
             lillevisdad
           </a>
         </h1>
-        <Reset />
+        <Reset onReset={onReset} />
       </main>
     </div>
   )
+}
+
+// This gets called on every request
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  // Fetch data from external API
+  const res = await fetch(
+    `https://api.jsonbin.io/v3/b/627bcfc525069545a3328815/latest`
+  )
+  const {
+    record: { lastDate },
+  } = await res.json()
+
+  // Pass data to the page via props
+  return { props: { lastDate } }
 }
 
 export default Home
