@@ -11,7 +11,7 @@ const Reset = ({ onReset }: any) => {
   const [password, setPassword] = useState('')
 
   return (
-    <div className="mt-40 flex ">
+    <div className="mt-40 flex flex-col sm:flex-row ">
       <input
         type="text"
         placeholder="Password"
